@@ -1,0 +1,8 @@
+# Created by .ignore support plugin (hsz.mobi)
+tf_binary
+.idea
+.terraform
+*.auto.tfvars.json
+*.tfstate
+*.tf
+*.tfstate.backup
