@@ -1,0 +1,791 @@
+2020-10-19 16:45:00 CST INFO    download terraform binary
+2020-10-19 16:45:00 CST INFO    downloading https://releases.hashicorp.com/terraform/0.12.13/terraform_0.12.13_darwin_amd64.zip
+2020-10-19 16:45:11 CST INFO    downloading https://releases.hashicorp.com/terraform-provider-google/2.17.0/terraform-provider-google_2.17.0_darwin_amd64.zip
+2020-10-19 16:45:20 CST INFO    downloading https://releases.hashicorp.com/terraform-provider-google-beta/2.17.0/terraform-provider-google-beta_2.17.0_darwin_amd64.zip
+2020-10-19 16:45:46 CST INFO    terraform version
+Terraform v0.12.13
++ provider.google v2.17.0
++ provider.google-beta v2.17.0
+Activated service account credentials for: [terraform@gke-eu-1.iam.gserviceaccount.com]
+2020-10-19 16:45:50 CST INFO    create a vpc network
+Created [https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc-multim].
+NAME        SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
+vpc-multim  CUSTOM       REGIONAL
+
+Instances on this network will not be reachable until firewall rules
+are created. As an example, you can allow all internal traffic between
+instances as well as SSH, RDP, and ICMP by running:
+
+$ gcloud compute firewall-rules create <FIREWALL_NAME> --network vpc-multim --allow tcp,udp,icmp --source-ranges <IP_RANGE>
+$ gcloud compute firewall-rules create <FIREWALL_NAME> --network vpc-multim --allow tcp:22,tcp:3389,icmp
+
+2020-10-19 16:46:07 CST INFO    clean up terraform dir
+2020-10-19 16:46:07 CST INFO    prepare main.tf, 1st version of this file does not have properties: purpose and role which are explicitly for proxy-only subnet
+locals {
+  subnets = {
+    for subnet, value in var.subnets :
+    subnet => {
+      name : format("%s-%s-%s", value.network, value.region, subnet)
+      description : value.description
+      region : value.region
+      network : value.network
+      ip_cidr_range : value.ip_cidr_range
+      private_ip_google_access : value.private_ip_google_access
+      enable_flow_logs : true
+      secondary_ip_ranges : [
+        for name, cidr in value.secondary_ip_ranges :
+        {
+          range_name : name,
+          ip_cidr_range : cidr
+        }
+      ]
+    }
+  }
+}
+
+resource "google_compute_subnetwork" "subnet" {
+  for_each = local.subnets
+
+  project                  = var.project
+  network                  = each.value.network
+  name                     = each.value.name
+  description              = each.value.description
+  region                   = each.value.region
+  ip_cidr_range            = each.value.ip_cidr_range
+  secondary_ip_range       = each.value.secondary_ip_ranges
+  private_ip_google_access = each.value.private_ip_google_access
+  enable_flow_logs         = each.value.enable_flow_logs
+}
+2020-10-19 16:46:07 CST INFO    prepare vars.tf, 1st version of this file does not have properties: purpose and role which are explicitly for proxy-only subnet
+variable "project" {
+  description = "project ID"
+  type        = string
+}
+
+variable "subnets" {
+  description = "subnet objects"
+  type = map(object(
+    {
+      network : string
+      region : string
+      description : string
+      ip_cidr_range : string
+      private_ip_google_access : bool
+      secondary_ip_ranges : map(string)
+    }
+  ))
+}
+2020-10-19 16:46:07 CST INFO    prepare subnets.auto.tfvars.json which will create 2 normal subnets
+{
+    "subnets": {
+        "gkenodes": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "gkenodes",
+            "ip_cidr_range": "192.168.192.0/23",
+            "private_ip_google_access": true,
+            "secondary_ip_ranges": {
+                "gkepods": "192.168.128.0/19",
+                "gkeservices": "192.168.208.0/21"
+            }
+        },
+        "net1": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "net1",
+            "ip_cidr_range": "192.168.0.0/20",
+            "private_ip_google_access": true,
+            "secondary_ip_ranges": {}
+        }
+    }
+}
+2020-10-19 16:46:07 CST INFO    terraform init
+
+[0m[1mInitializing the backend...[0m
+
+[0m[1mInitializing provider plugins...[0m
+
+The following providers do not have any version constraints in configuration,
+so the latest version was installed.
+
+To prevent automatic upgrades to new major versions that may contain breaking
+changes, it is recommended to add version = "..." constraints to the
+corresponding provider blocks in configuration, with the constraint strings
+suggested below.
+
+* provider.google: version = "~> 2.17"
+* provider.google-beta: version = "~> 2.17"
+
+[0m[1m[32mTerraform has been successfully initialized![0m[32m[0m
+[0m[32m
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.[0m
+2020-10-19 16:46:08 CST INFO    terraform plan
+[0m[1mRefreshing Terraform state in-memory prior to plan...[0m
+The refreshed state will be used to calculate this plan, but will not be
+persisted to local or remote state storage.
+[0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-active-subnet["lb"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-lb-active][0m
+[0m[1mgoogle_compute_subnetwork.subnet["net1"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-net1][0m
+[0m[1mgoogle_compute_subnetwork.subnet["net2"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-net2][0m
+[0m[1mgoogle_compute_subnetwork.subnet["gkenodes"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-gkenodes][0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-backup-subnet["lb"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-lb-backup][0m
+
+------------------------------------------------------------------------
+
+An execution plan has been generated and is shown below.
+Resource actions are indicated with the following symbols:
+  [32m+[0m create
+[0m
+Terraform will perform the following actions:
+
+[1m  # google_compute_subnetwork.subnet["gkenodes"][0m will be created[0m[0m
+[0m[32m  +[0m [0mresource "google_compute_subnetwork" "subnet" {
+      [32m+[0m [0m[1m[0mcreation_timestamp[0m[0m       = (known after apply)
+      [32m+[0m [0m[1m[0mdescription[0m[0m              = "gkenodes"
+      [32m+[0m [0m[1m[0menable_flow_logs[0m[0m         = true
+      [32m+[0m [0m[1m[0mfingerprint[0m[0m              = (known after apply)
+      [32m+[0m [0m[1m[0mgateway_address[0m[0m          = (known after apply)
+      [32m+[0m [0m[1m[0mid[0m[0m                       = (known after apply)
+      [32m+[0m [0m[1m[0mip_cidr_range[0m[0m            = "192.168.192.0/23"
+      [32m+[0m [0m[1m[0mname[0m[0m                     = "vpc-multim-europe-west2-gkenodes"
+      [32m+[0m [0m[1m[0mnetwork[0m[0m                  = "vpc-multim"
+      [32m+[0m [0m[1m[0mprivate_ip_google_access[0m[0m = true
+      [32m+[0m [0m[1m[0mproject[0m[0m                  = "gke-eu-1"
+      [32m+[0m [0m[1m[0mregion[0m[0m                   = "europe-west2"
+      [32m+[0m [0m[1m[0msecondary_ip_range[0m[0m       = [
+          [32m+[0m [0m{
+              [32m+[0m [0mip_cidr_range = "192.168.128.0/19"
+              [32m+[0m [0mrange_name    = "gkepods"
+            },
+          [32m+[0m [0m{
+              [32m+[0m [0mip_cidr_range = "192.168.208.0/21"
+              [32m+[0m [0mrange_name    = "gkeservices"
+            },
+        ]
+      [32m+[0m [0m[1m[0mself_link[0m[0m                = (known after apply)
+    }
+
+[1m  # google_compute_subnetwork.subnet["net1"][0m will be created[0m[0m
+[0m[32m  +[0m [0mresource "google_compute_subnetwork" "subnet" {
+      [32m+[0m [0m[1m[0mcreation_timestamp[0m[0m       = (known after apply)
+      [32m+[0m [0m[1m[0mdescription[0m[0m              = "net1"
+      [32m+[0m [0m[1m[0menable_flow_logs[0m[0m         = true
+      [32m+[0m [0m[1m[0mfingerprint[0m[0m              = (known after apply)
+      [32m+[0m [0m[1m[0mgateway_address[0m[0m          = (known after apply)
+      [32m+[0m [0m[1m[0mid[0m[0m                       = (known after apply)
+      [32m+[0m [0m[1m[0mip_cidr_range[0m[0m            = "192.168.0.0/20"
+      [32m+[0m [0m[1m[0mname[0m[0m                     = "vpc-multim-europe-west2-net1"
+      [32m+[0m [0m[1m[0mnetwork[0m[0m                  = "vpc-multim"
+      [32m+[0m [0m[1m[0mprivate_ip_google_access[0m[0m = true
+      [32m+[0m [0m[1m[0mproject[0m[0m                  = "gke-eu-1"
+      [32m+[0m [0m[1m[0mregion[0m[0m                   = "europe-west2"
+      [32m+[0m [0m[1m[0msecondary_ip_range[0m[0m       = []
+      [32m+[0m [0m[1m[0mself_link[0m[0m                = (known after apply)
+    }
+
+[0m[1mPlan:[0m 2 to add, 0 to change, 0 to destroy.[0m
+
+------------------------------------------------------------------------
+
+Note: You didn't specify an "-out" parameter to save this plan, so Terraform
+can't guarantee that exactly these actions will be performed if
+"terraform apply" is subsequently run.
+
+2020-10-19 16:46:14 CST INFO    terraform apply
+[0m[1mgoogle_compute_subnetwork.proxy-only-active-subnet["lb"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-lb-active][0m
+[0m[1mgoogle_compute_subnetwork.subnet["net2"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-net2][0m
+[0m[1mgoogle_compute_subnetwork.subnet["net1"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-net1][0m
+[0m[1mgoogle_compute_subnetwork.subnet["gkenodes"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-gkenodes][0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-backup-subnet["lb"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-lb-backup][0m
+[0m[1mgoogle_compute_subnetwork.subnet["net1"]: Creating...[0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["gkenodes"]: Creating...[0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["gkenodes"]: Still creating... [10s elapsed][0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["net1"]: Still creating... [10s elapsed][0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["net1"]: Still creating... [20s elapsed][0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["gkenodes"]: Still creating... [20s elapsed][0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["gkenodes"]: Creation complete after 22s [id=europe-west2/vpc-multim-europe-west2-gkenodes][0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["net1"]: Creation complete after 22s [id=europe-west2/vpc-multim-europe-west2-net1][0m[0m
+[0m[1m[32m
+Apply complete! Resources: 2 added, 0 changed, 0 destroyed.[0m
+2020-10-19 16:46:46 CST INFO    list subnets
+NAME                              REGION        NETWORK     RANGE             PURPOSE  ROLE
+vpc-multim-europe-west2-gkenodes  europe-west2  vpc-multim  192.168.192.0/23  PRIVATE
+vpc-multim-europe-west2-net1      europe-west2  vpc-multim  192.168.0.0/20    PRIVATE
+2020-10-19 16:46:48 CST INFO    re-use existing modules but add support for proxy-only subnets
+2020-10-19 16:46:48 CST INFO    prepare main.tf, add google beta provider to main.tf
+locals {
+  subnets = {
+    for subnet, value in var.subnets :
+    subnet => {
+      name : format("%s-%s-%s", value.network, value.region, subnet)
+      description : value.description
+      region : value.region
+      network : value.network
+      ip_cidr_range : value.ip_cidr_range
+      private_ip_google_access : value.private_ip_google_access
+      enable_flow_logs : value.purpose == "INTERNAL_HTTPS_LOAD_BALANCER" ? false : true
+      secondary_ip_ranges : [
+        for name, cidr in value.secondary_ip_ranges :
+        {
+          range_name : name,
+          ip_cidr_range : cidr
+        }
+      ]
+      purpose: value.purpose
+      role: value.role
+    }
+  }
+}
+
+resource "google_compute_subnetwork" "subnet" {
+  provider = google-beta
+  for_each = local.subnets
+
+  project                  = var.project
+  network                  = each.value.network
+  name                     = each.value.name
+  description              = each.value.description
+  region                   = each.value.region
+  ip_cidr_range            = each.value.ip_cidr_range
+  secondary_ip_range       = each.value.secondary_ip_ranges
+  private_ip_google_access = each.value.private_ip_google_access
+  enable_flow_logs         = each.value.enable_flow_logs
+  purpose                  = each.value.purpose
+  role                     = each.value.role
+}
+2020-10-19 16:46:48 CST INFO    prepare vars.tf, add properties purpose and role
+variable "project" {
+  description = "project ID"
+  type        = string
+}
+
+variable "subnets" {
+  description = "subnet objects"
+  type = map(object(
+    {
+      network : string
+      region : string
+      description : string
+      ip_cidr_range : string
+      private_ip_google_access : bool
+      secondary_ip_ranges : map(string)
+      purpose : string
+      role : string
+    }
+  ))
+}
+2020-10-19 16:46:48 CST INFO    prepare subnets.auto.tfvars.json which will maintain existing 2 normal subnets, create 1 normal and 2 proxy-only subnets
+{
+    "subnets": {
+        "gkenodes": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "gkenodes",
+            "ip_cidr_range": "192.168.192.0/23",
+            "private_ip_google_access": true,
+            "secondary_ip_ranges": {
+                "gkepods": "192.168.128.0/19",
+                "gkeservices": "192.168.208.0/21"
+            }
+        },
+        "net1": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "net1",
+            "ip_cidr_range": "192.168.0.0/20",
+            "private_ip_google_access": true,
+            "secondary_ip_ranges": {}
+        },
+        "net2": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "net2",
+            "ip_cidr_range": "192.168.32.0/20",
+            "private_ip_google_access": true,
+            "secondary_ip_ranges": {}
+        },
+        "lb1": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "lb1",
+            "ip_cidr_range": "192.168.230.0/24",
+            "purpose": "INTERNAL_HTTPS_LOAD_BALANCER",
+            "role": "ACTIVE"
+        },
+        "lb2": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "lb2",
+            "ip_cidr_range": "192.168.231.0/24",
+            "purpose": "INTERNAL_HTTPS_LOAD_BALANCER",
+            "role": "BACKUP"
+        }
+    }
+}
+2020-10-19 16:46:48 CST INFO    terraform version
+Terraform v0.12.13
++ provider.google v2.17.0
++ provider.google-beta v2.17.0
+2020-10-19 16:46:49 CST INFO    terraform init
+
+[0m[1mInitializing the backend...[0m
+
+[0m[1mInitializing provider plugins...[0m
+
+The following providers do not have any version constraints in configuration,
+so the latest version was installed.
+
+To prevent automatic upgrades to new major versions that may contain breaking
+changes, it is recommended to add version = "..." constraints to the
+corresponding provider blocks in configuration, with the constraint strings
+suggested below.
+
+* provider.google: version = "~> 2.17"
+* provider.google-beta: version = "~> 2.17"
+
+[0m[1m[32mTerraform has been successfully initialized![0m[32m[0m
+[0m[32m
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.[0m
+2020-10-19 16:46:49 CST INFO    terraform plan
+[31m
+[1m[31mError: [0m[0m[1mInvalid value for input variable[0m
+
+[0m  on subnets.auto.tfvars.json line 2:
+   2:     "subnets": [4m{[0m
+[0m   3: [4m        "gkenodes": {[0m
+[0m   4: [4m            "network": "vpc-multim",[0m
+[0m   5: [4m            "region": "europe-west2",[0m
+[0m   6: [4m            "description": "gkenodes",[0m
+[0m   7: [4m            "ip_cidr_range": "192.168.192.0/23",[0m
+[0m   8: [4m            "private_ip_google_access": true,[0m
+[0m   9: [4m            "secondary_ip_ranges": {[0m
+[0m  10: [4m                "gkepods": "192.168.128.0/19",[0m
+[0m  11: [4m                "gkeservices": "192.168.208.0/21"[0m
+[0m  12: [4m            }[0m
+[0m  13: [4m        },[0m
+[0m  14: [4m        "net1": {[0m
+[0m  15: [4m            "network": "vpc-multim",[0m
+[0m  16: [4m            "region": "europe-west2",[0m
+[0m  17: [4m            "description": "net1",[0m
+[0m  18: [4m            "ip_cidr_range": "192.168.0.0/20",[0m
+[0m  19: [4m            "private_ip_google_access": true,[0m
+[0m  20: [4m            "secondary_ip_ranges": {}[0m
+[0m  21: [4m        },[0m
+[0m  22: [4m        "net2": {[0m
+[0m  23: [4m            "network": "vpc-multim",[0m
+[0m  24: [4m            "region": "europe-west2",[0m
+[0m  25: [4m            "description": "net2",[0m
+[0m  26: [4m            "ip_cidr_range": "192.168.32.0/20",[0m
+[0m  27: [4m            "private_ip_google_access": true,[0m
+[0m  28: [4m            "secondary_ip_ranges": {}[0m
+[0m  29: [4m        },[0m
+[0m  30: [4m        "lb1": {[0m
+[0m  31: [4m            "network": "vpc-multim",[0m
+[0m  32: [4m            "region": "europe-west2",[0m
+[0m  33: [4m            "description": "lb1",[0m
+[0m  34: [4m            "ip_cidr_range": "192.168.230.0/24",[0m
+[0m  35: [4m            "purpose": "INTERNAL_HTTPS_LOAD_BALANCER",[0m
+[0m  36: [4m            "role": "ACTIVE"[0m
+[0m  37: [4m        },[0m
+[0m  38: [4m        "lb2": {[0m
+[0m  39: [4m            "network": "vpc-multim",[0m
+[0m  40: [4m            "region": "europe-west2",[0m
+[0m  41: [4m            "description": "lb2",[0m
+[0m  42: [4m            "ip_cidr_range": "192.168.231.0/24",[0m
+[0m  43: [4m            "purpose": "INTERNAL_HTTPS_LOAD_BALANCER",[0m
+[0m  44: [4m            "role": "BACKUP"[0m
+[0m  45: [4m        }[0m
+[0m  46: [4m    }[0m
+[0m
+The given value is not valid for variable "subnets": element "net1":
+attributes "purpose" and "role" are required.
+[0m[0m
+2020-10-19 16:46:50 CST INFO    terraform apply
+[31m
+[1m[31mError: [0m[0m[1mInvalid value for input variable[0m
+
+[0m  on subnets.auto.tfvars.json line 2:
+   2:     "subnets": [4m{[0m
+[0m   3: [4m        "gkenodes": {[0m
+[0m   4: [4m            "network": "vpc-multim",[0m
+[0m   5: [4m            "region": "europe-west2",[0m
+[0m   6: [4m            "description": "gkenodes",[0m
+[0m   7: [4m            "ip_cidr_range": "192.168.192.0/23",[0m
+[0m   8: [4m            "private_ip_google_access": true,[0m
+[0m   9: [4m            "secondary_ip_ranges": {[0m
+[0m  10: [4m                "gkepods": "192.168.128.0/19",[0m
+[0m  11: [4m                "gkeservices": "192.168.208.0/21"[0m
+[0m  12: [4m            }[0m
+[0m  13: [4m        },[0m
+[0m  14: [4m        "net1": {[0m
+[0m  15: [4m            "network": "vpc-multim",[0m
+[0m  16: [4m            "region": "europe-west2",[0m
+[0m  17: [4m            "description": "net1",[0m
+[0m  18: [4m            "ip_cidr_range": "192.168.0.0/20",[0m
+[0m  19: [4m            "private_ip_google_access": true,[0m
+[0m  20: [4m            "secondary_ip_ranges": {}[0m
+[0m  21: [4m        },[0m
+[0m  22: [4m        "net2": {[0m
+[0m  23: [4m            "network": "vpc-multim",[0m
+[0m  24: [4m            "region": "europe-west2",[0m
+[0m  25: [4m            "description": "net2",[0m
+[0m  26: [4m            "ip_cidr_range": "192.168.32.0/20",[0m
+[0m  27: [4m            "private_ip_google_access": true,[0m
+[0m  28: [4m            "secondary_ip_ranges": {}[0m
+[0m  29: [4m        },[0m
+[0m  30: [4m        "lb1": {[0m
+[0m  31: [4m            "network": "vpc-multim",[0m
+[0m  32: [4m            "region": "europe-west2",[0m
+[0m  33: [4m            "description": "lb1",[0m
+[0m  34: [4m            "ip_cidr_range": "192.168.230.0/24",[0m
+[0m  35: [4m            "purpose": "INTERNAL_HTTPS_LOAD_BALANCER",[0m
+[0m  36: [4m            "role": "ACTIVE"[0m
+[0m  37: [4m        },[0m
+[0m  38: [4m        "lb2": {[0m
+[0m  39: [4m            "network": "vpc-multim",[0m
+[0m  40: [4m            "region": "europe-west2",[0m
+[0m  41: [4m            "description": "lb2",[0m
+[0m  42: [4m            "ip_cidr_range": "192.168.231.0/24",[0m
+[0m  43: [4m            "purpose": "INTERNAL_HTTPS_LOAD_BALANCER",[0m
+[0m  44: [4m            "role": "BACKUP"[0m
+[0m  45: [4m        }[0m
+[0m  46: [4m    }[0m
+[0m
+The given value is not valid for variable "subnets": element "net1":
+attributes "purpose" and "role" are required.
+[0m[0m
+2020-10-19 16:46:50 CST INFO    list subnets
+NAME                              REGION        NETWORK     RANGE             PURPOSE  ROLE
+vpc-multim-europe-west2-gkenodes  europe-west2  vpc-multim  192.168.192.0/23  PRIVATE
+vpc-multim-europe-west2-net1      europe-west2  vpc-multim  192.168.0.0/20    PRIVATE
+2020-10-19 16:46:52 CST INFO    as we can see error above, re-use existing gcp_compute_subnetwork module
+2020-10-19 16:46:52 CST INFO    add properties to existing module and input variables will break existing infra
+2020-10-19 16:46:52 CST INFO    for existing infra defined in the subnets.json, use-case team will have to add new properties
+2020-10-19 16:46:52 CST INFO    we will try add another module for proxy-only subnet
+2020-10-19 16:46:52 CST INFO    prepare main.tf, add new module for proxy-only subnet
+locals {
+  subnets = {
+    for subnet, value in var.subnets :
+    subnet => {
+      name : format("%s-%s-%s", value.network, value.region, subnet)
+      description : value.description
+      region : value.region
+      network : value.network
+      ip_cidr_range : value.ip_cidr_range
+      private_ip_google_access : value.private_ip_google_access
+      enable_flow_logs : true
+      secondary_ip_ranges : [
+        for name, cidr in value.secondary_ip_ranges :
+        {
+          range_name : name,
+          ip_cidr_range : cidr
+        }
+      ]
+    }
+  }
+
+  proxy-only-active-subnets = {
+    for subnet, value in var.proxy-only-subnets :
+    subnet => {
+      name : format("%s-%s-%s-active", value.network, value.region, subnet)
+      description : value.description
+      region : value.region
+      network : value.network
+      ip_cidr_range : value.active_ip_cidr_range
+      purpose: "INTERNAL_HTTPS_LOAD_BALANCER"
+      role: "ACTIVE"
+    }
+  }
+
+  proxy-only-backup-subnets = {
+  for subnet, value in var.proxy-only-subnets :
+    subnet => {
+      name : format("%s-%s-%s-backup", value.network, value.region, subnet)
+      description : value.description
+      region : value.region
+      network : value.network
+      ip_cidr_range : value.backup_ip_cidr_range
+      purpose: "INTERNAL_HTTPS_LOAD_BALANCER"
+      role: "BACKUP"
+    }
+  }
+}
+
+resource "google_compute_subnetwork" "subnet" {
+  for_each = local.subnets
+
+  project                  = var.project
+  network                  = each.value.network
+  name                     = each.value.name
+  description              = each.value.description
+  region                   = each.value.region
+  ip_cidr_range            = each.value.ip_cidr_range
+  secondary_ip_range       = each.value.secondary_ip_ranges
+  private_ip_google_access = each.value.private_ip_google_access
+  enable_flow_logs         = each.value.enable_flow_logs
+}
+
+resource "google_compute_subnetwork" "proxy-only-active-subnet" {
+  provider = google-beta
+  for_each = local.proxy-only-active-subnets
+
+  project                  = var.project
+  network                  = each.value.network
+  name                     = each.value.name
+  description              = each.value.description
+  region                   = each.value.region
+  ip_cidr_range            = each.value.ip_cidr_range
+  purpose                  = each.value.purpose
+  role                     = each.value.role
+}
+
+resource "google_compute_subnetwork" "proxy-only-backup-subnet" {
+  provider = google-beta
+  for_each = local.proxy-only-backup-subnets
+
+  project                  = var.project
+  network                  = each.value.network
+  name                     = each.value.name
+  description              = each.value.description
+  region                   = each.value.region
+  ip_cidr_range            = each.value.ip_cidr_range
+  purpose                  = each.value.purpose
+  role                     = each.value.role
+
+  depends_on = [google_compute_subnetwork.proxy-only-active-subnet]
+}
+2020-10-19 16:46:52 CST INFO    prepare vars.tf, add a new input variable for proxy-only subnets
+variable "project" {
+  description = "project ID"
+  type        = string
+}
+
+variable "subnets" {
+  description = "subnet objects"
+  type = map(object(
+    {
+      network : string
+      region : string
+      description : string
+      ip_cidr_range : string
+      private_ip_google_access : bool
+      secondary_ip_ranges : map(string)
+    }
+  ))
+}
+
+variable "proxy-only-subnets" {
+  description = "proxy-only subnet objects for http load balancer"
+  type = map(object(
+    {
+      network : string
+      region : string
+      description : string
+      active_ip_cidr_range : string
+      backup_ip_cidr_range : string
+    }
+  ))
+  default = {}
+}
+2020-10-19 16:46:52 CST INFO    prepare subnets.auto.tfvars.json which will maintain existing 2 normal subnets, create 1 normal and 2 proxy-only subnets
+{
+    "subnets": {
+        "gkenodes": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "gkenodes",
+            "ip_cidr_range": "192.168.192.0/23",
+            "private_ip_google_access": true,
+            "secondary_ip_ranges": {
+                "gkepods": "192.168.128.0/19",
+                "gkeservices": "192.168.208.0/21"
+            }
+        },
+        "net1": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "net1",
+            "ip_cidr_range": "192.168.0.0/20",
+            "private_ip_google_access": true,
+            "secondary_ip_ranges": {}
+        },
+        "net2": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "net2",
+            "ip_cidr_range": "192.168.32.0/20",
+            "private_ip_google_access": true,
+            "secondary_ip_ranges": {}
+        }
+    },
+    "proxy-only-subnets": {
+        "lb": {
+            "network": "vpc-multim",
+            "region": "europe-west2",
+            "description": "proxy-only subnets for http load balancer",
+            "active_ip_cidr_range": "192.168.230.0/24",
+            "backup_ip_cidr_range": "192.168.231.0/24"
+        }
+    }
+}
+2020-10-19 16:46:52 CST INFO    terraform version
+Terraform v0.12.13
++ provider.google v2.17.0
++ provider.google-beta v2.17.0
+2020-10-19 16:46:53 CST INFO    terraform init
+
+[0m[1mInitializing the backend...[0m
+
+[0m[1mInitializing provider plugins...[0m
+
+The following providers do not have any version constraints in configuration,
+so the latest version was installed.
+
+To prevent automatic upgrades to new major versions that may contain breaking
+changes, it is recommended to add version = "..." constraints to the
+corresponding provider blocks in configuration, with the constraint strings
+suggested below.
+
+* provider.google: version = "~> 2.17"
+* provider.google-beta: version = "~> 2.17"
+
+[0m[1m[32mTerraform has been successfully initialized![0m[32m[0m
+[0m[32m
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.[0m
+2020-10-19 16:46:53 CST INFO    terraform plan
+[0m[1mRefreshing Terraform state in-memory prior to plan...[0m
+The refreshed state will be used to calculate this plan, but will not be
+persisted to local or remote state storage.
+[0m
+[0m[1mgoogle_compute_subnetwork.subnet["net1"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-net1][0m
+[0m[1mgoogle_compute_subnetwork.subnet["gkenodes"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-gkenodes][0m
+
+------------------------------------------------------------------------
+
+An execution plan has been generated and is shown below.
+Resource actions are indicated with the following symbols:
+  [32m+[0m create
+[0m
+Terraform will perform the following actions:
+
+[1m  # google_compute_subnetwork.proxy-only-active-subnet["lb"][0m will be created[0m[0m
+[0m[32m  +[0m [0mresource "google_compute_subnetwork" "proxy-only-active-subnet" {
+      [32m+[0m [0m[1m[0mcreation_timestamp[0m[0m = (known after apply)
+      [32m+[0m [0m[1m[0mdescription[0m[0m        = "proxy-only subnets for http load balancer"
+      [32m+[0m [0m[1m[0mfingerprint[0m[0m        = (known after apply)
+      [32m+[0m [0m[1m[0mgateway_address[0m[0m    = (known after apply)
+      [32m+[0m [0m[1m[0mid[0m[0m                 = (known after apply)
+      [32m+[0m [0m[1m[0mip_cidr_range[0m[0m      = "192.168.230.0/24"
+      [32m+[0m [0m[1m[0mname[0m[0m               = "vpc-multim-europe-west2-lb-active"
+      [32m+[0m [0m[1m[0mnetwork[0m[0m            = "vpc-multim"
+      [32m+[0m [0m[1m[0mproject[0m[0m            = "gke-eu-1"
+      [32m+[0m [0m[1m[0mpurpose[0m[0m            = "INTERNAL_HTTPS_LOAD_BALANCER"
+      [32m+[0m [0m[1m[0mregion[0m[0m             = "europe-west2"
+      [32m+[0m [0m[1m[0mrole[0m[0m               = "ACTIVE"
+      [32m+[0m [0m[1m[0msecondary_ip_range[0m[0m = (known after apply)
+      [32m+[0m [0m[1m[0mself_link[0m[0m          = (known after apply)
+
+      [32m+[0m [0mlog_config {
+          [32m+[0m [0m[1m[0maggregation_interval[0m[0m = (known after apply)
+          [32m+[0m [0m[1m[0mflow_sampling[0m[0m        = (known after apply)
+          [32m+[0m [0m[1m[0mmetadata[0m[0m             = (known after apply)
+        }
+    }
+
+[1m  # google_compute_subnetwork.proxy-only-backup-subnet["lb"][0m will be created[0m[0m
+[0m[32m  +[0m [0mresource "google_compute_subnetwork" "proxy-only-backup-subnet" {
+      [32m+[0m [0m[1m[0mcreation_timestamp[0m[0m = (known after apply)
+      [32m+[0m [0m[1m[0mdescription[0m[0m        = "proxy-only subnets for http load balancer"
+      [32m+[0m [0m[1m[0mfingerprint[0m[0m        = (known after apply)
+      [32m+[0m [0m[1m[0mgateway_address[0m[0m    = (known after apply)
+      [32m+[0m [0m[1m[0mid[0m[0m                 = (known after apply)
+      [32m+[0m [0m[1m[0mip_cidr_range[0m[0m      = "192.168.231.0/24"
+      [32m+[0m [0m[1m[0mname[0m[0m               = "vpc-multim-europe-west2-lb-backup"
+      [32m+[0m [0m[1m[0mnetwork[0m[0m            = "vpc-multim"
+      [32m+[0m [0m[1m[0mproject[0m[0m            = "gke-eu-1"
+      [32m+[0m [0m[1m[0mpurpose[0m[0m            = "INTERNAL_HTTPS_LOAD_BALANCER"
+      [32m+[0m [0m[1m[0mregion[0m[0m             = "europe-west2"
+      [32m+[0m [0m[1m[0mrole[0m[0m               = "BACKUP"
+      [32m+[0m [0m[1m[0msecondary_ip_range[0m[0m = (known after apply)
+      [32m+[0m [0m[1m[0mself_link[0m[0m          = (known after apply)
+
+      [32m+[0m [0mlog_config {
+          [32m+[0m [0m[1m[0maggregation_interval[0m[0m = (known after apply)
+          [32m+[0m [0m[1m[0mflow_sampling[0m[0m        = (known after apply)
+          [32m+[0m [0m[1m[0mmetadata[0m[0m             = (known after apply)
+        }
+    }
+
+[1m  # google_compute_subnetwork.subnet["net2"][0m will be created[0m[0m
+[0m[32m  +[0m [0mresource "google_compute_subnetwork" "subnet" {
+      [32m+[0m [0m[1m[0mcreation_timestamp[0m[0m       = (known after apply)
+      [32m+[0m [0m[1m[0mdescription[0m[0m              = "net2"
+      [32m+[0m [0m[1m[0menable_flow_logs[0m[0m         = true
+      [32m+[0m [0m[1m[0mfingerprint[0m[0m              = (known after apply)
+      [32m+[0m [0m[1m[0mgateway_address[0m[0m          = (known after apply)
+      [32m+[0m [0m[1m[0mid[0m[0m                       = (known after apply)
+      [32m+[0m [0m[1m[0mip_cidr_range[0m[0m            = "192.168.32.0/20"
+      [32m+[0m [0m[1m[0mname[0m[0m                     = "vpc-multim-europe-west2-net2"
+      [32m+[0m [0m[1m[0mnetwork[0m[0m                  = "vpc-multim"
+      [32m+[0m [0m[1m[0mprivate_ip_google_access[0m[0m = true
+      [32m+[0m [0m[1m[0mproject[0m[0m                  = "gke-eu-1"
+      [32m+[0m [0m[1m[0mregion[0m[0m                   = "europe-west2"
+      [32m+[0m [0m[1m[0msecondary_ip_range[0m[0m       = []
+      [32m+[0m [0m[1m[0mself_link[0m[0m                = (known after apply)
+    }
+
+[0m[1mPlan:[0m 3 to add, 0 to change, 0 to destroy.[0m
+
+------------------------------------------------------------------------
+
+Note: You didn't specify an "-out" parameter to save this plan, so Terraform
+can't guarantee that exactly these actions will be performed if
+"terraform apply" is subsequently run.
+
+2020-10-19 16:47:02 CST INFO    terraform apply
+[0m[1mgoogle_compute_subnetwork.subnet["net1"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-net1][0m
+[0m[1mgoogle_compute_subnetwork.subnet["gkenodes"]: Refreshing state... [id=europe-west2/vpc-multim-europe-west2-gkenodes][0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-active-subnet["lb"]: Creating...[0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["net2"]: Creating...[0m[0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-active-subnet["lb"]: Still creating... [10s elapsed][0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["net2"]: Still creating... [10s elapsed][0m[0m
+[0m[1mgoogle_compute_subnetwork.subnet["net2"]: Creation complete after 14s [id=europe-west2/vpc-multim-europe-west2-net2][0m[0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-active-subnet["lb"]: Still creating... [20s elapsed][0m[0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-active-subnet["lb"]: Creation complete after 21s [id=europe-west2/vpc-multim-europe-west2-lb-active][0m[0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-backup-subnet["lb"]: Creating...[0m[0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-backup-subnet["lb"]: Still creating... [10s elapsed][0m[0m
+[0m[1mgoogle_compute_subnetwork.proxy-only-backup-subnet["lb"]: Creation complete after 19s [id=europe-west2/vpc-multim-europe-west2-lb-backup][0m[0m
+[0m[1m[32m
+Apply complete! Resources: 3 added, 0 changed, 0 destroyed.[0m
+2020-10-19 16:47:46 CST INFO    list subnets
+NAME                               REGION        NETWORK     RANGE             PURPOSE                       ROLE
+vpc-multim-europe-west2-gkenodes   europe-west2  vpc-multim  192.168.192.0/23  PRIVATE
+vpc-multim-europe-west2-lb-active  europe-west2  vpc-multim  192.168.230.0/24  INTERNAL_HTTPS_LOAD_BALANCER  ACTIVE
+vpc-multim-europe-west2-lb-backup  europe-west2  vpc-multim  192.168.231.0/24  INTERNAL_HTTPS_LOAD_BALANCER  BACKUP
+vpc-multim-europe-west2-net1       europe-west2  vpc-multim  192.168.0.0/20    PRIVATE
+vpc-multim-europe-west2-net2       europe-west2  vpc-multim  192.168.32.0/20   PRIVATE
+2020-10-19 16:47:49 CST INFO    tidy up
+Deleted [https://www.googleapis.com/compute/v1/projects/gke-eu-1/regions/europe-west2/subnetworks/vpc-multim-europe-west2-lb-backup].
+Deleted [https://www.googleapis.com/compute/v1/projects/gke-eu-1/regions/europe-west2/subnetworks/vpc-multim-europe-west2-gkenodes].
+Deleted [https://www.googleapis.com/compute/v1/projects/gke-eu-1/regions/europe-west2/subnetworks/vpc-multim-europe-west2-lb-active].
+Deleted [https://www.googleapis.com/compute/v1/projects/gke-eu-1/regions/europe-west2/subnetworks/vpc-multim-europe-west2-net1].
+Deleted [https://www.googleapis.com/compute/v1/projects/gke-eu-1/regions/europe-west2/subnetworks/vpc-multim-europe-west2-net2].
+Deleted [https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc-multim].
