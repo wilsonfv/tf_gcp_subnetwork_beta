@@ -6,3 +6,4 @@ tf_binary
 *.tfstate
 *.tf
 *.tfstate.backup
+*.tfvars
