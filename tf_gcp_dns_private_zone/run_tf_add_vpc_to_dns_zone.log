@@ -1,9 +1,9 @@
 Activated service account credentials for: [terraform@gke-eu-1.iam.gserviceaccount.com]
-2020-10-21 10:34:22 CST INFO    download terraform binary
-2020-10-21 10:34:22 CST INFO    downloading https://releases.hashicorp.com/terraform/0.12.13/terraform_0.12.13_darwin_amd64.zip
-2020-10-21 10:34:27 CST INFO    downloading https://releases.hashicorp.com/terraform-provider-google/3.1.0/terraform-provider-google_3.1.0_darwin_amd64.zip
-2020-10-21 10:34:31 CST INFO    downloading https://releases.hashicorp.com/terraform-provider-google-beta/3.1.0/terraform-provider-google-beta_3.1.0_darwin_amd64.zip
-2020-10-21 10:34:38 CST INFO    prepare network.tf
+2020-10-26 15:00:00 CST INFO    download terraform binary
+2020-10-26 15:00:00 CST INFO    downloading https://releases.hashicorp.com/terraform/0.12.13/terraform_0.12.13_darwin_amd64.zip
+2020-10-26 15:00:22 CST INFO    downloading https://releases.hashicorp.com/terraform-provider-google/3.1.0/terraform-provider-google_3.1.0_darwin_amd64.zip
+2020-10-26 15:00:48 CST INFO    downloading https://releases.hashicorp.com/terraform-provider-google-beta/3.1.0/terraform-provider-google-beta_3.1.0_darwin_amd64.zip
+2020-10-26 15:01:31 CST INFO    prepare network.tf
 module "default-network" {
   source = "terraform-google-modules/network/google"
 
@@ -36,7 +36,7 @@ module "default-network" {
 
   delete_default_internet_gateway_routes = true
 }
-2020-10-21 10:34:38 CST INFO    prepare dns.tf
+2020-10-26 15:01:31 CST INFO    prepare dns.tf
 module "dns-private-zone" {
   source = "terraform-google-modules/cloud-dns/google"
 
@@ -62,7 +62,7 @@ module "dns-private-zone" {
     }
   ]
 }
-2020-10-21 10:34:38 CST INFO    prepare vars.tf
+2020-10-26 15:01:31 CST INFO    prepare vars.tf
 variable "project" {
   description = "project ID"
   type        = string
@@ -77,15 +77,15 @@ variable "other_vpc_list" {
   description = "vpc network url to be added into Cloud DNS private access dot zone, separated by comma, vpc other than default-network"
   type        = list(string)
 }
-2020-10-21 10:34:40 CST INFO    prepare terraform.tfvars
+2020-10-26 15:01:33 CST INFO    prepare terraform.tfvars
 project = "gke-eu-1"
 region = "europe-west2"
 other_vpc_list = ["",]
-2020-10-21 10:34:40 CST INFO    list vpc
+2020-10-26 15:01:33 CST INFO    list vpc
 Listed 0 items.
-2020-10-21 10:34:42 CST INFO    terraform version
+2020-10-26 15:01:35 CST INFO    terraform version
 Terraform v0.12.13
-2020-10-21 10:34:43 CST INFO    terraform init
+2020-10-26 15:01:38 CST INFO    terraform init
 Initializing modules...
 Downloading terraform-google-modules/network/google 2.5.0 for default-network...
 - default-network in .terraform/modules/default-network
@@ -118,7 +118,146 @@ should now work.
 If you ever set or change modules or backend configuration for Terraform,
 rerun this command to reinitialize your working directory. If you forget, other
 commands will detect it and remind you to do so if necessary.
-2020-10-21 10:34:58 CST INFO    terraform plan
+2020-10-26 15:02:29 CST terraform-google-modules/cloud-dns/google this module has a bug in the outputs.tf if none of zones exists, it would raise exception    
+2020-10-26 15:02:29 CST display original buggy version of outputs.tf    
+/**
+ * Copyright 2019 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+output "type" {
+  description = "The DNS zone type."
+  value       = var.type
+}
+
+output "name" {
+  description = "The DNS zone name."
+
+  value = element(
+    concat(
+      google_dns_managed_zone.peering.*.name,
+      google_dns_managed_zone.forwarding.*.name,
+      google_dns_managed_zone.private.*.name,
+      google_dns_managed_zone.public.*.name,
+    ),
+    0,
+  )
+}
+
+output "domain" {
+  description = "The DNS zone domain."
+
+  value = element(
+    concat(
+      google_dns_managed_zone.peering.*.dns_name,
+      google_dns_managed_zone.forwarding.*.dns_name,
+      google_dns_managed_zone.private.*.dns_name,
+      google_dns_managed_zone.public.*.dns_name,
+    ),
+    0,
+  )
+}
+
+output "name_servers" {
+  description = "The DNS zone name servers."
+
+  value = flatten(
+    concat(
+      google_dns_managed_zone.peering.*.name_servers,
+      google_dns_managed_zone.forwarding.*.name_servers,
+      google_dns_managed_zone.private.*.name_servers,
+      google_dns_managed_zone.public.*.name_servers,
+    ),
+  )
+}
+2020-10-26 15:02:29 CST replace a new version of outputs.tf     
+/**
+ * Copyright 2019 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+output "type" {
+  description = "The DNS zone type."
+  value       = var.type
+}
+
+output "name" {
+  description = "The DNS zone name."
+
+  value = length(concat(
+    google_dns_managed_zone.peering.*.name,
+    google_dns_managed_zone.forwarding.*.name,
+    google_dns_managed_zone.private.*.name,
+    google_dns_managed_zone.public.*.name)) == 0 ? "" : element(
+    concat(
+      google_dns_managed_zone.peering.*.name,
+      google_dns_managed_zone.forwarding.*.name,
+      google_dns_managed_zone.private.*.name,
+      google_dns_managed_zone.public.*.name
+    ),
+    0,
+  )
+}
+
+output "domain" {
+  description = "The DNS zone domain."
+
+  value = length(concat(
+    google_dns_managed_zone.peering.*.dns_name,
+    google_dns_managed_zone.forwarding.*.dns_name,
+    google_dns_managed_zone.private.*.dns_name,
+    google_dns_managed_zone.public.*.dns_name
+    )) == 0 ? "" : element(
+    concat(
+      google_dns_managed_zone.peering.*.dns_name,
+      google_dns_managed_zone.forwarding.*.dns_name,
+      google_dns_managed_zone.private.*.dns_name,
+      google_dns_managed_zone.public.*.dns_name
+    ),
+    0,
+  )
+}
+
+output "name_servers" {
+  description = "The DNS zone name servers."
+
+  value = length(concat(
+    google_dns_managed_zone.peering.*.name_servers,
+    google_dns_managed_zone.forwarding.*.name_servers,
+    google_dns_managed_zone.private.*.name_servers,
+    google_dns_managed_zone.public.*.name_servers
+    )) == 0 ? [] : flatten(
+    concat(
+      google_dns_managed_zone.peering.*.name_servers,
+      google_dns_managed_zone.forwarding.*.name_servers,
+      google_dns_managed_zone.private.*.name_servers,
+      google_dns_managed_zone.public.*.name_servers
+    ),
+  )
+}
+2020-10-26 15:02:29 CST INFO    terraform plan
 Refreshing Terraform state in-memory prior to plan...
 The refreshed state will be used to calculate this plan, but will not be
 persisted to local or remote state storage.
@@ -248,33 +387,34 @@ Note: You didn't specify an "-out" parameter to save this plan, so Terraform
 can't guarantee that exactly these actions will be performed if
 "terraform apply" is subsequently run.
 
-2020-10-21 10:35:01 CST INFO    terraform apply
+2020-10-26 15:02:31 CST INFO    terraform apply
 module.default-network.module.vpc.google_compute_network.network: Creating...
 module.default-network.module.vpc.google_compute_network.network: Still creating... [10s elapsed]
 module.default-network.module.vpc.google_compute_network.network: Still creating... [20s elapsed]
-module.default-network.module.vpc.google_compute_network.network: Creation complete after 21s [id=projects/gke-eu-1/global/networks/default-network]
+module.default-network.module.vpc.google_compute_network.network: Creation complete after 30s [id=projects/gke-eu-1/global/networks/default-network]
 module.dns-private-zone.google_dns_managed_zone.private[0]: Creating...
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Creating...
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Creating...
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Still creating... [10s elapsed]
-module.dns-private-zone.google_dns_managed_zone.private[0]: Still creating... [10s elapsed]
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Still creating... [10s elapsed]
-module.dns-private-zone.google_dns_managed_zone.private[0]: Creation complete after 18s [id=projects/gke-eu-1/managedZones/private-access]
-module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Creating...
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Creating...
+module.dns-private-zone.google_dns_managed_zone.private[0]: Creation complete after 3s [id=projects/gke-eu-1/managedZones/private-access]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Creating...
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Creation complete after 18s [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Creation complete after 18s [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
-module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Creation complete after 2s [id=private-access/gcr.io.dot./A]
-module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Creation complete after 3s [id=private-access/restricted.googleapis.com.dot./A]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Creating...
+module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Creation complete after 5s [id=private-access/restricted.googleapis.com.dot./A]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Creation complete after 5s [id=private-access/gcr.io.dot./A]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Still creating... [10s elapsed]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Still creating... [10s elapsed]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Still creating... [20s elapsed]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Still creating... [20s elapsed]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Creation complete after 20s [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Creation complete after 21s [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
 
 Apply complete! Resources: 6 added, 0 changed, 0 destroyed.
-2020-10-21 10:35:43 CST INFO    list vpc
+2020-10-26 15:03:24 CST INFO    list vpc
 NAME             SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
 default-network  CUSTOM       REGIONAL
-2020-10-21 10:35:45 CST INFO    list vpc in Cloud DNS private-access zone
+2020-10-26 15:03:27 CST INFO    list vpc in Cloud DNS private-access zone
 NAME            DNS_NAME  NETWORK_URL
 private-access  dot.      ['https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/default-network']
-2020-10-21 10:35:48 CST INFO    add 2 new vpc
+2020-10-26 15:03:30 CST INFO    add 2 new vpc
 Created [https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc1].
 NAME  SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
 vpc1  CUSTOM       REGIONAL
@@ -297,23 +437,23 @@ instances as well as SSH, RDP, and ICMP by running:
 $ gcloud compute firewall-rules create <FIREWALL_NAME> --network vpc2 --allow tcp,udp,icmp --source-ranges <IP_RANGE>
 $ gcloud compute firewall-rules create <FIREWALL_NAME> --network vpc2 --allow tcp:22,tcp:3389,icmp
 
-2020-10-21 10:36:07 CST INFO    list vpc
+2020-10-26 15:03:48 CST INFO    list vpc
 NAME             SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
 default-network  CUSTOM       REGIONAL
 vpc1             CUSTOM       REGIONAL
 vpc2             CUSTOM       REGIONAL
-2020-10-21 10:36:09 CST INFO    list vpc in Cloud DNS private-access zone
+2020-10-26 15:03:50 CST INFO    list vpc in Cloud DNS private-access zone
 NAME            DNS_NAME  NETWORK_URL
 private-access  dot.      ['https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/default-network']
-2020-10-21 10:36:13 CST INFO    prepare terraform.tfvars, new vpc will be passed into tf variable
+2020-10-26 15:03:55 CST INFO    prepare terraform.tfvars, new vpc will be passed into tf variable
 project = "gke-eu-1"
 region = "europe-west2"
 other_vpc_list = ["https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc1","https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc2",]
-2020-10-21 10:36:13 CST INFO    terraform version
+2020-10-26 15:03:55 CST INFO    terraform version
 Terraform v0.12.13
 + provider.google v3.1.0
 + provider.google-beta v3.1.0
-2020-10-21 10:36:13 CST INFO    terraform init
+2020-10-26 15:03:55 CST INFO    terraform init
 Initializing modules...
 
 Initializing the backend...
@@ -339,14 +479,14 @@ should now work.
 If you ever set or change modules or backend configuration for Terraform,
 rerun this command to reinitialize your working directory. If you forget, other
 commands will detect it and remind you to do so if necessary.
-2020-10-21 10:36:14 CST INFO    terraform plan
+2020-10-26 15:03:55 CST INFO    terraform plan
 Refreshing Terraform state in-memory prior to plan...
 The refreshed state will be used to calculate this plan, but will not be
 persisted to local or remote state storage.
 
 module.default-network.module.vpc.google_compute_network.network: Refreshing state... [id=projects/gke-eu-1/global/networks/default-network]
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
 module.dns-private-zone.google_dns_managed_zone.private[0]: Refreshing state... [id=projects/gke-eu-1/managedZones/private-access]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Refreshing state... [id=private-access/gcr.io.dot./A]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Refreshing state... [id=private-access/restricted.googleapis.com.dot./A]
@@ -393,40 +533,52 @@ Note: You didn't specify an "-out" parameter to save this plan, so Terraform
 can't guarantee that exactly these actions will be performed if
 "terraform apply" is subsequently run.
 
-2020-10-21 10:36:19 CST INFO    terraform apply
+2020-10-26 15:04:06 CST INFO    terraform apply
 module.default-network.module.vpc.google_compute_network.network: Refreshing state... [id=projects/gke-eu-1/global/networks/default-network]
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
 module.dns-private-zone.google_dns_managed_zone.private[0]: Refreshing state... [id=projects/gke-eu-1/managedZones/private-access]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Refreshing state... [id=private-access/restricted.googleapis.com.dot./A]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Refreshing state... [id=private-access/gcr.io.dot./A]
 module.dns-private-zone.google_dns_managed_zone.private[0]: Modifying... [id=projects/gke-eu-1/managedZones/private-access]
-module.dns-private-zone.google_dns_managed_zone.private[0]: Modifications complete after 4s [id=projects/gke-eu-1/managedZones/private-access]
+module.dns-private-zone.google_dns_managed_zone.private[0]: Modifications complete after 5s [id=projects/gke-eu-1/managedZones/private-access]
 
 Apply complete! Resources: 0 added, 1 changed, 0 destroyed.
-2020-10-21 10:36:27 CST INFO    list vpc
+2020-10-26 15:04:17 CST INFO    list vpc
 NAME             SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
 default-network  CUSTOM       REGIONAL
 vpc1             CUSTOM       REGIONAL
 vpc2             CUSTOM       REGIONAL
-2020-10-21 10:36:29 CST INFO    list vpc in Cloud DNS private-access zone
+2020-10-26 15:04:20 CST INFO    list vpc in Cloud DNS private-access zone
 NAME            DNS_NAME  NETWORK_URL
 private-access  dot.      ['https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/default-network', 'https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc2', 'https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc1']
-2020-10-21 10:36:31 CST INFO    remove one vpc and run terraform apply
+2020-10-26 15:04:22 CST INFO    remove one vpc, add a new vpc and run terraform apply
 Deleted [https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc1].
-2020-10-21 10:36:42 CST INFO    list vpc
+Created [https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc3].
+NAME  SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
+vpc3  CUSTOM       REGIONAL
+
+Instances on this network will not be reachable until firewall rules
+are created. As an example, you can allow all internal traffic between
+instances as well as SSH, RDP, and ICMP by running:
+
+$ gcloud compute firewall-rules create <FIREWALL_NAME> --network vpc3 --allow tcp,udp,icmp --source-ranges <IP_RANGE>
+$ gcloud compute firewall-rules create <FIREWALL_NAME> --network vpc3 --allow tcp:22,tcp:3389,icmp
+
+2020-10-26 15:04:48 CST INFO    list vpc
 NAME             SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
 default-network  CUSTOM       REGIONAL
 vpc2             CUSTOM       REGIONAL
-2020-10-21 10:36:46 CST INFO    prepare terraform.tfvars, new vpc will be passed into tf variable
+vpc3             CUSTOM       REGIONAL
+2020-10-26 15:04:52 CST INFO    prepare terraform.tfvars, new vpc will be passed into tf variable
 project = "gke-eu-1"
 region = "europe-west2"
-other_vpc_list = ["https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc2",]
-2020-10-21 10:36:46 CST INFO    terraform version
+other_vpc_list = ["https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc2","https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc3",]
+2020-10-26 15:04:52 CST INFO    terraform version
 Terraform v0.12.13
 + provider.google v3.1.0
 + provider.google-beta v3.1.0
-2020-10-21 10:36:46 CST INFO    terraform init
+2020-10-26 15:04:53 CST INFO    terraform init
 Initializing modules...
 
 Initializing the backend...
@@ -452,17 +604,17 @@ should now work.
 If you ever set or change modules or backend configuration for Terraform,
 rerun this command to reinitialize your working directory. If you forget, other
 commands will detect it and remind you to do so if necessary.
-2020-10-21 10:36:46 CST INFO    terraform plan
+2020-10-26 15:04:53 CST INFO    terraform plan
 Refreshing Terraform state in-memory prior to plan...
 The refreshed state will be used to calculate this plan, but will not be
 persisted to local or remote state storage.
 
 module.default-network.module.vpc.google_compute_network.network: Refreshing state... [id=projects/gke-eu-1/global/networks/default-network]
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
 module.dns-private-zone.google_dns_managed_zone.private[0]: Refreshing state... [id=projects/gke-eu-1/managedZones/private-access]
-module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Refreshing state... [id=private-access/gcr.io.dot./A]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Refreshing state... [id=private-access/restricted.googleapis.com.dot./A]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Refreshing state... [id=private-access/gcr.io.dot./A]
 
 ------------------------------------------------------------------------
 
@@ -495,6 +647,9 @@ Terraform will perform the following actions:
             networks {
                 network_url = "https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc2"
             }
+          + networks {
+              + network_url = "https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc3"
+            }
         }
     }
 
@@ -506,13 +661,13 @@ Note: You didn't specify an "-out" parameter to save this plan, so Terraform
 can't guarantee that exactly these actions will be performed if
 "terraform apply" is subsequently run.
 
-2020-10-21 10:36:51 CST INFO    terraform apply
+2020-10-26 15:04:59 CST INFO    terraform apply
 module.default-network.module.vpc.google_compute_network.network: Refreshing state... [id=projects/gke-eu-1/global/networks/default-network]
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
 module.dns-private-zone.google_dns_managed_zone.private[0]: Refreshing state... [id=projects/gke-eu-1/managedZones/private-access]
-module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Refreshing state... [id=private-access/gcr.io.dot./A]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Refreshing state... [id=private-access/restricted.googleapis.com.dot./A]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Refreshing state... [id=private-access/gcr.io.dot./A]
 module.dns-private-zone.google_dns_managed_zone.private[0]: Modifying... [id=projects/gke-eu-1/managedZones/private-access]
 
 Error: Error updating ManagedZone "projects/gke-eu-1/managedZones/private-access": googleapi: Error 403: Forbidden, forbidden
@@ -521,30 +676,161 @@ Error: Error updating ManagedZone "projects/gke-eu-1/managedZones/private-access
   74: resource "google_dns_managed_zone" "private" {
 
 
-2020-10-21 10:37:00 CST INFO    tidy up
-2020-10-21 10:37:00 CST INFO    terraform destroy
+2020-10-26 15:05:09 CST INFO    list vpc
+NAME             SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
+default-network  CUSTOM       REGIONAL
+vpc2             CUSTOM       REGIONAL
+vpc3             CUSTOM       REGIONAL
+2020-10-26 15:05:11 CST INFO    list vpc in Cloud DNS private-access zone
+NAME            DNS_NAME  NETWORK_URL
+private-access  dot.      ['https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/default-network', 'https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc2', 'https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc1']
+2020-10-26 15:05:13 CST INFO    as we can see from above 403 error, there is a bug in Cloud DNS private zone
+2020-10-26 15:05:13 CST INFO    if an obsolete VPC record is contained in private zone
+2020-10-26 15:05:13 CST INFO    when updating such private zone's network URL with new VPC, it would raise exception
+2020-10-26 15:05:13 CST INFO    there are 2 kinds of workaround to bypass this exception
+2020-10-26 15:05:13 CST INFO    Workaround 1: manually restore obsolete VPC with the same vpc name, remove vpc from private zone then delete vpc
+2020-10-26 15:05:13 CST INFO    Workaround 2: with an amended version of terraform gcp dns module outputs.tf, manually delete private zone then run terraform apply again
+2020-10-26 15:05:13 CST INFO    we are going to demonstrate workaround 2
+2020-10-26 15:05:13 CST INFO    Demonstrating workaround 2: delete the private zone
+Imported record-sets from [empty-file] into managed-zone [private-access].
+Created [https://dns.googleapis.com/dns/v1/projects/gke-eu-1/managedZones/private-access/changes/3].
+ID  START_TIME                STATUS
+3   2020-10-26T07:05:16.497Z  pending
+Deleted [https://dns.googleapis.com/dns/v1/projects/gke-eu-1/managedZones/private-access].
+2020-10-26 15:05:18 CST INFO    Demonstrating workaround 2: run terraform plan and apply again
+2020-10-26 15:05:18 CST INFO    terraform plan
+Refreshing Terraform state in-memory prior to plan...
+The refreshed state will be used to calculate this plan, but will not be
+persisted to local or remote state storage.
+
 module.default-network.module.vpc.google_compute_network.network: Refreshing state... [id=projects/gke-eu-1/global/networks/default-network]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
 module.dns-private-zone.google_dns_managed_zone.private[0]: Refreshing state... [id=projects/gke-eu-1/managedZones/private-access]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Refreshing state... [id=private-access/restricted.googleapis.com.dot./A]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Refreshing state... [id=private-access/gcr.io.dot./A]
+
+------------------------------------------------------------------------
+
+An execution plan has been generated and is shown below.
+Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # module.dns-private-zone.google_dns_managed_zone.private[0] will be created
+  + resource "google_dns_managed_zone" "private" {
+      + description  = "Managed by Terraform"
+      + dns_name     = "dot."
+      + id           = (known after apply)
+      + name         = "private-access"
+      + name_servers = (known after apply)
+      + project      = "gke-eu-1"
+      + visibility   = "private"
+
+      + private_visibility_config {
+          + networks {
+              + network_url = "https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/default-network"
+            }
+          + networks {
+              + network_url = "https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc2"
+            }
+          + networks {
+              + network_url = "https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc3"
+            }
+        }
+    }
+
+  # module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"] will be created
+  + resource "google_dns_record_set" "cloud-static-records" {
+      + id           = (known after apply)
+      + managed_zone = "private-access"
+      + name         = "gcr.io.dot."
+      + project      = "gke-eu-1"
+      + rrdatas      = [
+          + "199.36.153.4",
+          + "199.36.153.5",
+          + "199.36.153.6",
+          + "199.36.153.7",
+        ]
+      + ttl          = 300
+      + type         = "A"
+    }
+
+  # module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"] will be created
+  + resource "google_dns_record_set" "cloud-static-records" {
+      + id           = (known after apply)
+      + managed_zone = "private-access"
+      + name         = "restricted.googleapis.com.dot."
+      + project      = "gke-eu-1"
+      + rrdatas      = [
+          + "199.36.153.4",
+          + "199.36.153.5",
+          + "199.36.153.6",
+          + "199.36.153.7",
+        ]
+      + ttl          = 300
+      + type         = "A"
+    }
+
+Plan: 3 to add, 0 to change, 0 to destroy.
+
+------------------------------------------------------------------------
+
+Note: You didn't specify an "-out" parameter to save this plan, so Terraform
+can't guarantee that exactly these actions will be performed if
+"terraform apply" is subsequently run.
+
+2020-10-26 15:05:33 CST INFO    terraform apply
+module.default-network.module.vpc.google_compute_network.network: Refreshing state... [id=projects/gke-eu-1/global/networks/default-network]
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
+module.dns-private-zone.google_dns_managed_zone.private[0]: Refreshing state... [id=projects/gke-eu-1/managedZones/private-access]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Refreshing state... [id=private-access/gcr.io.dot./A]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Refreshing state... [id=private-access/restricted.googleapis.com.dot./A]
-module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Destroying... [id=private-access/restricted.googleapis.com.dot./A]
+module.dns-private-zone.google_dns_managed_zone.private[0]: Creating...
+module.dns-private-zone.google_dns_managed_zone.private[0]: Creation complete after 4s [id=projects/gke-eu-1/managedZones/private-access]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Creating...
+module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Creating...
+module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Creation complete after 3s [id=private-access/restricted.googleapis.com.dot./A]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Creation complete after 3s [id=private-access/gcr.io.dot./A]
+
+Apply complete! Resources: 3 added, 0 changed, 0 destroyed.
+2020-10-26 15:05:45 CST INFO    list vpc
+NAME             SUBNET_MODE  BGP_ROUTING_MODE  IPV4_RANGE  GATEWAY_IPV4
+default-network  CUSTOM       REGIONAL
+vpc2             CUSTOM       REGIONAL
+vpc3             CUSTOM       REGIONAL
+2020-10-26 15:05:47 CST INFO    list vpc in Cloud DNS private-access zone
+NAME            DNS_NAME  NETWORK_URL
+private-access  dot.      ['https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/default-network', 'https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc2', 'https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc3']
+2020-10-26 15:05:50 CST INFO    tidy up
+2020-10-26 15:05:50 CST INFO    terraform destroy
+module.default-network.module.vpc.google_compute_network.network: Refreshing state... [id=projects/gke-eu-1/global/networks/default-network]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Refreshing state... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
+module.dns-private-zone.google_dns_managed_zone.private[0]: Refreshing state... [id=projects/gke-eu-1/managedZones/private-access]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Refreshing state... [id=private-access/restricted.googleapis.com.dot./A]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Refreshing state... [id=private-access/gcr.io.dot./A]
 module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Destroying... [id=private-access/gcr.io.dot./A]
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Destroying... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Destroying... [id=private-access/restricted.googleapis.com.dot./A]
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Destroying... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1]
-module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Destruction complete after 2s
-module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Destruction complete after 3s
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Destroying... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2]
+module.dns-private-zone.google_dns_record_set.cloud-static-records["restricted.googleapis.com/A"]: Destruction complete after 8s
+module.dns-private-zone.google_dns_record_set.cloud-static-records["gcr.io/A"]: Destruction complete after 8s
 module.dns-private-zone.google_dns_managed_zone.private[0]: Destroying... [id=projects/gke-eu-1/managedZones/private-access]
 module.dns-private-zone.google_dns_managed_zone.private[0]: Destruction complete after 1s
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Still destroying... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1, 10s elapsed]
 module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Still destroying... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2, 10s elapsed]
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Destruction complete after 10s
-module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Destruction complete after 19s
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Still destroying... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net1, 20s elapsed]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Still destroying... [id=projects/gke-eu-1/regions/europe-west2/subnetworks/net2, 20s elapsed]
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net2"]: Destruction complete after 24s
+module.default-network.module.subnets.google_compute_subnetwork.subnetwork["europe-west2/net1"]: Destruction complete after 26s
 module.default-network.module.vpc.google_compute_network.network: Destroying... [id=projects/gke-eu-1/global/networks/default-network]
 module.default-network.module.vpc.google_compute_network.network: Still destroying... [id=projects/gke-eu-1/global/networks/default-network, 10s elapsed]
-module.default-network.module.vpc.google_compute_network.network: Destruction complete after 17s
+module.default-network.module.vpc.google_compute_network.network: Destruction complete after 18s
 
 Destroy complete! Resources: 6 destroyed.
-2020-10-21 10:37:41 CST INFO    clean up terraform dir
+2020-10-26 15:06:40 CST INFO    clean up terraform dir
 Deleted [https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc2].
+Deleted [https://www.googleapis.com/compute/v1/projects/gke-eu-1/global/networks/vpc3].

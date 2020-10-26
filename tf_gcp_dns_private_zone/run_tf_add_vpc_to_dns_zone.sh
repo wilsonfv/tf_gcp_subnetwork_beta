@@ -42,6 +42,12 @@ function tidy_up() {
         if [[ -d ${SCRIPT_DIR}/.terraform ]]; then
             rm -rf ${SCRIPT_DIR}/.terraform
         fi
+        if [[ -f ${SCRIPT_DIR}/terraform.tfstate ]]; then
+            rm -f ${SCRIPT_DIR}/terraform.tfstate
+        fi
+        if [[ -f ${SCRIPT_DIR}/terraform.tfstate.backup ]]; then
+            rm -f ${SCRIPT_DIR}/terraform.tfstate.backup
+        fi
     fi
 
     for VPC_NAME in $(gcloud compute networks list \
@@ -195,6 +201,91 @@ ${TF_BINARY_DIR}/terraform init \
     -no-color \
     ${SCRIPT_DIR}
 
+log "terraform-google-modules/cloud-dns/google this module has a bug in the outputs.tf if none of zones exists, it would raise exception"
+
+log "display original buggy version of outputs.tf"
+cat ${SCRIPT_DIR}/.terraform/modules/dns-private-zone/outputs.tf
+
+log "replace a new version of outputs.tf "
+cat > ${SCRIPT_DIR}/.terraform/modules/dns-private-zone/outputs.tf<<EOF
+/**
+ * Copyright 2019 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+output "type" {
+  description = "The DNS zone type."
+  value       = var.type
+}
+
+output "name" {
+  description = "The DNS zone name."
+
+  value = length(concat(
+    google_dns_managed_zone.peering.*.name,
+    google_dns_managed_zone.forwarding.*.name,
+    google_dns_managed_zone.private.*.name,
+    google_dns_managed_zone.public.*.name)) == 0 ? "" : element(
+    concat(
+      google_dns_managed_zone.peering.*.name,
+      google_dns_managed_zone.forwarding.*.name,
+      google_dns_managed_zone.private.*.name,
+      google_dns_managed_zone.public.*.name
+    ),
+    0,
+  )
+}
+
+output "domain" {
+  description = "The DNS zone domain."
+
+  value = length(concat(
+    google_dns_managed_zone.peering.*.dns_name,
+    google_dns_managed_zone.forwarding.*.dns_name,
+    google_dns_managed_zone.private.*.dns_name,
+    google_dns_managed_zone.public.*.dns_name
+    )) == 0 ? "" : element(
+    concat(
+      google_dns_managed_zone.peering.*.dns_name,
+      google_dns_managed_zone.forwarding.*.dns_name,
+      google_dns_managed_zone.private.*.dns_name,
+      google_dns_managed_zone.public.*.dns_name
+    ),
+    0,
+  )
+}
+
+output "name_servers" {
+  description = "The DNS zone name servers."
+
+  value = length(concat(
+    google_dns_managed_zone.peering.*.name_servers,
+    google_dns_managed_zone.forwarding.*.name_servers,
+    google_dns_managed_zone.private.*.name_servers,
+    google_dns_managed_zone.public.*.name_servers
+    )) == 0 ? [] : flatten(
+    concat(
+      google_dns_managed_zone.peering.*.name_servers,
+      google_dns_managed_zone.forwarding.*.name_servers,
+      google_dns_managed_zone.private.*.name_servers,
+      google_dns_managed_zone.public.*.name_servers
+    ),
+  )
+}
+EOF
+cat ${SCRIPT_DIR}/.terraform/modules/dns-private-zone/outputs.tf
+
 log INFO "terraform plan"
 ${TF_BINARY_DIR}/terraform plan \
     -no-color \
@@ -272,8 +363,12 @@ gcloud dns managed-zones describe private-access \
     --project=${GCP_PROJECT_ID} \
     --format="table(name,dnsName,privateVisibilityConfig.networks[].networkUrl)"
 
-log INFO "remove one vpc and run terraform apply"
+log INFO "remove one vpc, add a new vpc and run terraform apply"
 gcloud compute networks delete vpc1 --project=${GCP_PROJECT_ID} -q
+gcloud compute networks create vpc3 \
+    --project=${GCP_PROJECT_ID} \
+    --bgp-routing-mode="regional" \
+    --subnet-mode=custom
 
 log INFO "list vpc"
 gcloud compute networks list --project=${GCP_PROJECT_ID}
@@ -309,6 +404,52 @@ ${TF_BINARY_DIR}/terraform apply \
     -no-color \
     -auto-approve \
     ${SCRIPT_DIR}
+
+log INFO "list vpc"
+gcloud compute networks list --project=${GCP_PROJECT_ID}
+
+log INFO "list vpc in Cloud DNS private-access zone"
+gcloud dns managed-zones describe private-access \
+    --project=${GCP_PROJECT_ID} \
+    --format="table(name,dnsName,privateVisibilityConfig.networks[].networkUrl)"
+
+log INFO "as we can see from above 403 error, there is a bug in Cloud DNS private zone"
+log INFO "if an obsolete VPC record is contained in private zone"
+log INFO "when updating such private zone's network URL with new VPC, it would raise exception"
+log INFO "there are 2 kinds of workaround to bypass this exception"
+log INFO "Workaround 1: manually restore obsolete VPC with the same vpc name, remove vpc from private zone then delete vpc"
+log INFO "Workaround 2: with an amended version of terraform gcp dns module outputs.tf, manually delete private zone then run terraform apply again"
+log INFO "we are going to demonstrate workaround 2"
+log INFO "Demonstrating workaround 2: delete the private zone"
+touch empty-file
+gcloud dns record-sets import -z private-access \
+    --project=${GCP_PROJECT_ID} \
+    --delete-all-existing \
+    empty-file
+rm empty-file
+gcloud dns managed-zones delete private-access --project=${GCP_PROJECT_ID} -q
+
+log INFO "Demonstrating workaround 2: run terraform plan and apply again"
+
+log INFO "terraform plan"
+${TF_BINARY_DIR}/terraform plan \
+    -no-color \
+    ${SCRIPT_DIR}
+
+log INFO "terraform apply"
+${TF_BINARY_DIR}/terraform apply \
+    -no-color \
+    -auto-approve \
+    ${SCRIPT_DIR}
+
+
+log INFO "list vpc"
+gcloud compute networks list --project=${GCP_PROJECT_ID}
+
+log INFO "list vpc in Cloud DNS private-access zone"
+gcloud dns managed-zones describe private-access \
+    --project=${GCP_PROJECT_ID} \
+    --format="table(name,dnsName,privateVisibilityConfig.networks[].networkUrl)"
 
 log INFO "tidy up"
 tidy_up
